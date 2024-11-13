@@ -1,0 +1,158 @@
+import time
+import numpy as np
+import os
+import warnings
+from PIL import Image
+import torch
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms, datasets
+
+warnings.filterwarnings("ignore")
+
+
+class MiniImageNetDataset(Dataset):
+    def __init__(self, root_dir, split='train', transform=None):
+        """
+        Args:
+            root_dir (string): Root directory of the dataset.
+            split (string): 'train', 'val', or 'test' split.
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+        self.root_dir = root_dir
+        self.split = split
+        self.transform = transform
+
+        self.image_paths = []
+        self.labels = []
+
+        split_path = os.path.join(root_dir, f'{split}.csv')
+        with open(split_path, 'r') as f:
+            next(f)
+            for line in f:
+                img_name, label = line.strip().split(',')
+                self.image_paths.append(os.path.join(root_dir, 'images', img_name))
+                self.labels.append(label)
+        self.label2idx = {label: idx for idx, label in enumerate(sorted(set(self.labels)))}
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        image = Image.open(self.image_paths[idx]).convert('RGB')
+        label = self.labels[idx]
+        label = self.label2idx[label]
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, label
+
+
+def your_algorithm(dataset, batch_size):
+    # setting hyperparameters 
+    num_workers_list = [0, 1, 2, 4, 8, 16, 32, 64, 128]
+    prefetch_factor_list = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+    persistent_workers_list = [0, 1]
+    pin_memory_list = [0, 1]
+    #initialization
+    best_config = None
+    best_runtime = float('inf') 
+
+    # Perform the grid search
+    for num_workers in num_workers_list:
+        for prefetch_factor in prefetch_factor_list:
+            for persistent_workers in persistent_workers_list:
+                for pin_memory in pin_memory_list:
+                    _pin_memory = True if pin_memory == 1 else False
+                    _persistent_workers = True if persistent_workers == 1 else False
+
+                    # Skip invalid configurations
+                    if prefetch_factor == 0 and persistent_workers > 0:
+                        continue
+                    
+                    # Create the DataLoader with the current configuration
+                    dataloader = DataLoader(
+                        dataset=dataset,
+                        batch_size=batch_size,
+                        num_workers=num_workers,
+                        prefetch_factor=prefetch_factor,
+                        persistent_workers=_persistent_workers,
+                        pin_memory=_pin_memory
+                    )
+
+                    # Measure runtime for the current configuration
+                    runtime_list = []
+                    stime = time.perf_counter_ns()  # Start time (in nanoseconds)
+                    for i, t in dataloader:
+                        i, t = i.to('cuda' if torch.cuda.is_available() else 'cpu'), t.to('cuda' if torch.cuda.is_available() else 'cpu')
+                        torch.cuda.synchronize()  # Ensure that CUDA operations are completed before measuring end time
+                        etime = time.perf_counter_ns()  # End time
+                        runtime_list.append((etime - stime) * 1e-6)  # Convert nanoseconds to milliseconds
+                    
+                    avg_runtime = np.mean(runtime_list)  # Calculate the average runtime
+
+                    # update to optimal combination
+                    if avg_runtime < best_runtime:
+                        best_runtime = avg_runtime
+                        best_config = {
+                            'num_workers': num_workers,
+                            'prefetch_factor': prefetch_factor,
+                            'persistent_workers': persistent_workers,
+                            'pin_memory': pin_memory
+                        }
+
+    print("Best Configuration:", best_config)
+    print(f"Best Runtime: {best_runtime:.4f} ms")
+
+    return best_config
+
+
+if __name__ == "__main__":
+    batch_size = 32
+    dataset = MiniImageNetDataset(
+        root_dir='mini-imagenet',
+        split='train',
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((256, 256)),
+            transforms.RandomCrop((224, 224)),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            ),
+        ])
+    )
+
+    # Run grid search to find the best configuration
+    params = your_algorithm(dataset, batch_size)
+
+    # If no configuration was found (in case of errors), fall back to default parameters
+    if params is None:
+        dataloader = DataLoader(
+            dataset=dataset,
+            batch_size=batch_size,
+            num_workers=int(os.cpu_count() / 2),
+            prefetch_factor=2,
+            pin_memory=False,
+            persistent_workers=False,
+        )
+    else:
+        dataloader = DataLoader(dataset=dataset, **params)
+
+    # Define the device (GPU if available)
+    dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+    # Measure the runtime for data loading
+    runtime_list = []
+    stime = time.perf_counter_ns()  # ns
+    for i, t in dataloader:
+        i, t = i.to(dev), t.to(dev)
+        torch.cuda.synchronize()  # Ensure the GPU is synchronized
+        etime = time.perf_counter_ns()
+        runtime_list.append((etime - stime) * 1e-6)  # ms
+
+    avg_runtime = np.mean(runtime_list)
+    std_runtime = np.std(runtime_list)
+
+    print(f"Average Runtime: {avg_runtime:.4f} ms")
+    print(f"Standard Deviation: {std_runtime:.4f}")
