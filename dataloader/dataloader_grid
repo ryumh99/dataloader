@@ -69,7 +69,8 @@ def your_algorithm(dataset, batch_size):
                     # Skip invalid configurations
                     if prefetch_factor == 0 and persistent_workers > 0:
                         continue
-                    
+                    if num_workers == 0:
+                        prefetch_factor = None  # Set prefetch_factor to None if num_workers is 0
                     # Create the DataLoader with the current configuration
                     dataloader = DataLoader(
                         dataset=dataset,
