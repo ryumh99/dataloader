@@ -48,7 +48,7 @@ class MiniImageNetDataset(Dataset):
         return image, label
 
 
-def your_algorithm(dataset, batch_size):
+def your_algorithm(dataset, batch_size,iteration =5 ):
     # setting hyperparameters 
     num_workers_list = [0, 1, 2, 4, 8, 16, 32, 64, 128]
     prefetch_factor_list = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
@@ -60,17 +60,58 @@ def your_algorithm(dataset, batch_size):
 
     # Perform the grid search
     for num_workers in num_workers_list:
+        if num_workers ==0 :
+            prefetch_factor = None
+            persistent_workers = 0
+            for pin_memory in pin_memory_list:
+            _pin_memory = True if pin_memory == 1 else False
+            _persistent_workers = True if persistent_workers == 1 else False
+
         for prefetch_factor in prefetch_factor_list:
             for persistent_workers in persistent_workers_list:
                 for pin_memory in pin_memory_list:
                     _pin_memory = True if pin_memory == 1 else False
-                    _persistent_workers = True if persistent_workers == 1 else False
+                    _persistent_workers = True if persistent_workers == 1 else False\
+                 # Create the DataLoader with the current configuration
+                    dataloader = DataLoader(
+                        dataset=dataset,
+                        batch_size=batch_size,
+                        num_workers=num_workers,
+                        prefetch_factor=prefetch_factor,
+                        persistent_workers=_persistent_workers,
+                        pin_memory=_pin_memory
+                    )
+
+                    # Measure runtime for the current configuration
+                    runtime_list = []
+                    for _ range(iteration):
+                        stime = time.perf_counter_ns()  # Start time (in nanoseconds)
+                        for i, t in dataloader:
+                            i, t = i.to('cuda' if torch.cuda.is_available() else 'cpu'), t.to('cuda' if torch.cuda.is_available() else 'cpu')
+                            torch.cuda.synchronize()  # Ensure that CUDA operations are completed before measuring end time
+                            etime = time.perf_counter_ns()  # End time
+                            runtime_list.append((etime - stime) * 1e-6)  # Convert nanoseconds to milliseconds
+                        
+                        avg_runtime = np.mean(runtime_list)  # Calculate the average runtime
+    
+                        # update to optimal combination
+                        if avg_runtime < best_runtime:
+                            best_runtime = avg_runtime
+                            best_config = {
+                                'num_workers': num_workers,
+                                'prefetch_factor': prefetch_factor,
+                                'persistent_workers': persistent_workers,
+                                'pin_memory': pin_memory
+                            }
+    
+                        # cutline
+                        if avg_runtime > best_runtime:
+                            print(f"Skipping {num_workers} workers, {prefetch_factor} prefetch_factor, {persistent_workers} persistent_workers, {pin_memory} pin_memory due to slow performance.")
+                            break  # Exit inner loop and move to next combination
 
                     # Skip invalid configurations
                     if prefetch_factor == 0 and persistent_workers > 0:
                         continue
-                    if num_workers == 0:
-                        prefetch_factor = None  # Set prefetch_factor to None if num_workers is 0
                     # Create the DataLoader with the current configuration
                     dataloader = DataLoader(
                         dataset=dataset,
@@ -83,29 +124,30 @@ def your_algorithm(dataset, batch_size):
 
                     # Measure runtime for the current configuration
                     runtime_list = []
-                    stime = time.perf_counter_ns()  # Start time (in nanoseconds)
-                    for i, t in dataloader:
-                        i, t = i.to('cuda' if torch.cuda.is_available() else 'cpu'), t.to('cuda' if torch.cuda.is_available() else 'cpu')
-                        torch.cuda.synchronize()  # Ensure that CUDA operations are completed before measuring end time
-                        etime = time.perf_counter_ns()  # End time
-                        runtime_list.append((etime - stime) * 1e-6)  # Convert nanoseconds to milliseconds
-                    
-                    avg_runtime = np.mean(runtime_list)  # Calculate the average runtime
-
-                    # update to optimal combination
-                    if avg_runtime < best_runtime:
-                        best_runtime = avg_runtime
-                        best_config = {
-                            'num_workers': num_workers,
-                            'prefetch_factor': prefetch_factor,
-                            'persistent_workers': persistent_workers,
-                            'pin_memory': pin_memory
-                        }
-
-                    # cutline
-                    if avg_runtime > best_runtime:
-                        print(f"Skipping {num_workers} workers, {prefetch_factor} prefetch_factor, {persistent_workers} persistent_workers, {pin_memory} pin_memory due to slow performance.")
-                        break  # Exit inner loop and move to next combination
+                    for _ range(iteration):
+                        stime = time.perf_counter_ns()  # Start time (in nanoseconds)
+                        for i, t in dataloader:
+                            i, t = i.to('cuda' if torch.cuda.is_available() else 'cpu'), t.to('cuda' if torch.cuda.is_available() else 'cpu')
+                            torch.cuda.synchronize()  # Ensure that CUDA operations are completed before measuring end time
+                            etime = time.perf_counter_ns()  # End time
+                            runtime_list.append((etime - stime) * 1e-6)  # Convert nanoseconds to milliseconds
+                        
+                        avg_runtime = np.mean(runtime_list)  # Calculate the average runtime
+    
+                        # update to optimal combination
+                        if avg_runtime < best_runtime:
+                            best_runtime = avg_runtime
+                            best_config = {
+                                'num_workers': num_workers,
+                                'prefetch_factor': prefetch_factor,
+                                'persistent_workers': persistent_workers,
+                                'pin_memory': pin_memory
+                            }
+    
+                        # cutline
+                        if avg_runtime > best_runtime:
+                            print(f"Skipping {num_workers} workers, {prefetch_factor} prefetch_factor, {persistent_workers} persistent_workers, {pin_memory} pin_memory due to slow performance.")
+                            break  # Exit inner loop and move to next combination
 
     print("Best Configuration:", best_config)
     print(f"Best Runtime: {best_runtime:.4f} ms")
