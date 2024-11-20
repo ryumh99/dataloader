@@ -1,0 +1,219 @@
+import time
+import numpy as np
+import os
+import warnings
+from PIL import Image
+import torch
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms, datasets
+
+warnings.filterwarnings("ignore")
+
+
+class MiniImageNetDataset(Dataset):
+    def __init__(self, root_dir, split='train', transform=None):
+        """
+        Args:
+            root_dir (string): Root directory of the dataset.
+            split (string): 'train', 'val', or 'test' split.
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+        self.root_dir = root_dir
+        self.split = split
+        self.transform = transform
+
+        self.image_paths = []
+        self.labels = []
+
+        split_path = os.path.join(root_dir, f'{split}.csv')
+        with open(split_path, 'r') as f:
+            next(f)
+            for line in f:
+                img_name, label = line.strip().split(',')
+                self.image_paths.append(os.path.join(root_dir, 'images', img_name))
+                self.labels.append(label)
+        self.label2idx = {label: idx for idx, label in enumerate(sorted(set(self.labels)))}
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        image = Image.open(self.image_paths[idx]).convert('RGB')
+        label = self.labels[idx]
+        label = self.label2idx[label]
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, label
+
+
+def your_algorithm(dataset, batch_size, iteration=10):
+    """
+    Binary search to find the optimal number of workers.
+    """
+    # Define hyperparameter grids
+    num_workers_list = [0, 2, 4, 8, 16, 32, 64, 128]
+    prefetch_factor_list = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+    persistent_workers_list = [0, 1]
+    pin_memory_list = [0, 1]
+
+    # binary search set up
+    low, high = 0, len(num_workers_list) - 1
+    best_num_workers = num_workers_list[low]
+    best_runtime = float('inf')
+    best_config = None
+
+    while low <= high:
+        mid = (low + high) // 2
+        num_workers = num_workers_list[mid]
+
+        # Now we will search for the best configuration for this `num_workers`
+        current_best_runtime = float('inf')
+        current_best_config = None
+        if num_workers == 0: 
+            prefetch_factor = None
+            persistent_workers = 0
+            for pin_memory in pin_memory_list:
+                _pin_memory = True if pin_memory == 1 else False
+                _persistent_workers = True if persistent_workers == 1 else False
+                # Create DataLoader with the current configuration
+                dataloader = DataLoader(
+                    dataset=dataset,
+                    batch_size=batch_size,
+                    num_workers=num_workers,
+                    prefetch_factor=prefetch_factor,
+                    persistent_workers=_persistent_workers,
+                    pin_memory=_pin_memory
+                )
+
+                # Measure runtime for the current configuration
+                runtime_list = []
+                for _ in range(iteration):
+                    stime = time.perf_counter_ns()  # Start time (in nanoseconds)
+                    for i, t in dataloader:
+                        i, t = i.to('cuda' if torch.cuda.is_available() else 'cpu'), t.to('cuda' if torch.cuda.is_available() else 'cpu')
+                        torch.cuda.synchronize()  # Ensure that CUDA operations are completed before measuring end time
+                    etime = time.perf_counter_ns()  # End time
+                    runtime_list.append((etime - stime) * 1e-6)  # Convert nanoseconds to milliseconds
+                
+                avg_runtime = np.mean(runtime_list)  # Calculate the average runtime
+                
+                # Update the best configuration for this `num_workers`
+                if avg_runtime < current_best_runtime:
+                    current_best_runtime = avg_runtime
+                    current_best_config = {
+                        'num_workers': num_workers,
+                        'prefetch_factor': prefetch_factor,
+                        'persistent_workers': persistent_workers,
+                        'pin_memory': pin_memory
+                    }
+        else:
+            for prefetch_factor in prefetch_factor_list:
+                for pin_memory in pin_memory_list:
+                    for persistent_workers in persistent_workers_list:
+                        _pin_memory = True if pin_memory == 1 else False
+                        _persistent_workers = True if persistent_workers == 1 else False
+                            
+                        if prefetch_factor == 0 or num_workers== 0 and persistent_workers > 0: 
+                            continue
+
+                        # Create DataLoader with the current configuration
+                        dataloader = DataLoader(
+                            dataset=dataset,
+                            batch_size=batch_size,
+                            num_workers=num_workers,
+                            prefetch_factor=prefetch_factor,
+                            persistent_workers=_persistent_workers,
+                            pin_memory=_pin_memory
+                        )
+
+                        # Measure runtime for the current configuration
+                        runtime_list = []
+                        for _ in range(iteration):
+                            stime = time.perf_counter_ns()  # Start time (in nanoseconds)
+                            for i, t in dataloader:
+                                i, t = i.to('cuda' if torch.cuda.is_available() else 'cpu'), t.to('cuda' if torch.cuda.is_available() else 'cpu')
+                                torch.cuda.synchronize()  # Ensure that CUDA operations are completed before measuring end time
+                            etime = time.perf_counter_ns()  # End time
+                            runtime_list.append((etime - stime) * 1e-6)  # Convert nanoseconds to milliseconds
+                        
+                        avg_runtime = np.mean(runtime_list)  # Calculate the average runtime
+                        
+                        # Update the best configuration for this `num_workers`
+                        if avg_runtime < current_best_runtime:
+                            current_best_runtime = avg_runtime
+                            current_best_config = {
+                                'num_workers': num_workers,
+                                'prefetch_factor': prefetch_factor,
+                                'persistent_workers': persistent_workers,
+                                'pin_memory': pin_memory
+                            }
+
+        # Apply the binary search logic:
+        if current_best_runtime < best_runtime:
+            # This mid value gives a better result, so we keep it and look for possibly better values
+            best_runtime = current_best_runtime
+            best_config = current_best_config
+            # Move to the right part of the search space
+            low = mid + 1
+        else:
+            # This mid value is worse than what we already found, search on the left side
+            high = mid - 1
+
+    return best_config, best_runtime
+
+
+if __name__ == "__main__":
+    batch_size = 32
+    dataset = MiniImageNetDataset(
+        root_dir='/home/myhoon/work/project/dataloader/dataloader',
+        split='train',
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((256, 256)),
+            transforms.RandomCrop((224, 224)),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            ),
+        ])
+    )
+
+
+    a_start_time = time.time()
+    # Run the binary search
+    params, best_runtime = your_algorithm(dataset, batch_size )
+    a_end_time = time.time()
+
+    # If no configuration was found (in case of errors), fall back to default parameters
+    if params is None:
+        dataloader = DataLoader(
+            dataset=dataset,
+            batch_size=batch_size,
+            num_workers=int(os.cpu_count() / 2),
+            prefetch_factor=2,
+            pin_memory=False,
+            persistent_workers=False,
+        )
+    else:
+        dataloader = DataLoader(dataset=dataset, **params)
+
+    # Define the device (GPU if available)
+    dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+    # Measure the runtime for data loading
+    runtime_list = []
+    stime = time.perf_counter_ns()  # ns
+    for i, t in dataloader:
+        i, t = i.to(dev), t.to(dev)
+        torch.cuda.synchronize()  # Ensure the GPU is synchronized
+        etime = time.perf_counter_ns()
+        runtime_list.append((etime - stime) * 1e-6)  # ms
+
+    avg_runtime = np.mean(runtime_list)
+    std_runtime = np.std(runtime_list)
+
+    print(f"Average Runtime: {avg_runtime:.4f} ms")
+    print(f"Standard Deviation: {std_runtime:.4f}")
+    print(f"Paramter Search Time : {a_start_time - a_end_time :.4f} seconds")
