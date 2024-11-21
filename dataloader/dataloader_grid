@@ -198,4 +198,4 @@ if __name__ == "__main__":
 
     print(f"Average Runtime: {avg_runtime:.4f} ms")
     print(f"Standard Deviation: {std_runtime:.4f}")
-    print(f"Paramter Search Time : {a_start_time - a_end_time :.4f} seconds")
+    print(f"Paramter Search Time : {a_end_time - a_start_time :.4f} seconds")
