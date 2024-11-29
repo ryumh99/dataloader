@@ -1,0 +1,9 @@
+name: project  # 가상환경 이름
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - numpy
+  - pytorch
+  - torchvision
+  - pip
