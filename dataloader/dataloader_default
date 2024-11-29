@@ -1,31 +1,17 @@
-'''
-README
----
-    Use following datasets,
-    1. mini-ImageNet (https://www.kaggle.com/datasets/zcyzhchyu/mini-imagenet/data)
-        - This dataset consists of 100 classes, each class has 600 images.
-        - Download method:
-            $ pip install kaggle
-            $ kaggle datasets download -d zcyzhchyu/mini-imagenet
-    2. Flowers102 (Do not need to download over the internet)
-        - This dataset consists of 102 classes, each class has 40-258 images.
-        - Download method:
-            >>> from torchvision import datasets
-            >>> datasets.Flowers102(root="flowers102", split="train", download=True) # Use download=True only once.
-'''
-import time
-import numpy as np
 import os
+import time
 import warnings
+import numpy as np
 from PIL import Image
 
 import torch
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms, datasets
+from torchvision import transforms
 
 warnings.filterwarnings("ignore")
 
 
+### Dataset ###
 class MiniImageNetDataset(Dataset):
     def __init__(self, root_dir, split='train', transform=None):
         """
@@ -41,6 +27,7 @@ class MiniImageNetDataset(Dataset):
         self.image_paths = []
         self.labels = []
 
+        # Load image paths and labels
         split_path = os.path.join(root_dir, f'{split}.csv')
         with open(split_path, 'r') as f:
             next(f)
@@ -64,17 +51,59 @@ class MiniImageNetDataset(Dataset):
         return image, label
 
 
-def your_algorithm():
-    '''
-        TODO: Implement your algorithm here.
-    '''
-    return 
+### DataLoader measure time ###
+def measure_time(dataloader, device):
+    """
+    Measure the average runtime and standard deviation for data loading.
+
+    Args:
+        dataloader (DataLoader): DataLoader to measure.
+        device (torch.device): Device to load data onto.
+
+    Returns:
+        tuple: (Average runtime in ms, Standard deviation in ms)
+    """
+    runtime_list = []
+    for i, t in dataloader:
+        stime = time.perf_counter_ns()
+        i, t = i.to(device), t.to(device)
+        torch.cuda.synchronize()  # Wait for all GPU tasks to finish
+        etime = time.perf_counter_ns()
+        runtime_list.append((etime - stime) * 1e-6)  # Convert ns to ms
+
+    avg_runtime = np.mean(runtime_list)
+    std_runtime = np.std(runtime_list)
+    return avg_runtime, std_runtime
+
+
+### config ###
+def your_algorithm(dataset, batch_size):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # num_workers_list = int(os.count()/2)
+    # prefetch_factor_list = [2]
+    # persistent_workers=[False]
+    # pin_memory_list=[False]
+    default_config = {
+        'num_workers': int(os.cpu_count()/2),
+        'prefetch_factor': 2,
+        'persistent_workers': False,
+        'pin_memory': False,
+        }
+    dataloader = DataLoader(dataset, batch_size=32, **default_config)
+    avg_runtime, _ = measure_time(dataloader, device)
+    print("Best Configuration:", default_config)
+    print(f"Best Runtime: {avg_runtime:.4f} ms")
+    return default_config
+
+
+
 
 
 if __name__ == "__main__":
-    batch_size = 32
+    #batch size
+    batch_size = 2 # 32, ,64 ,128 ,256 
     dataset = MiniImageNetDataset(
-        root_dir='mini-imagenet',
+        root_dir='/home/myhoon/work/dataloader/dataloader', #주소 변경 필수!
         split='train',
         transform=transforms.Compose([
             transforms.ToTensor(),
@@ -86,47 +115,23 @@ if __name__ == "__main__":
             ),
         ])
     )
-    # If you want to use Flowers102 dataset, use following code.
-    # dataset = datasets.Flowers102(
-    #     root="flowers102",
-    #     split="train",
-    #     download=True,
-    #     transform=transforms.Compose([
-    #         transforms.ToTensor(),
-    #         transforms.Resize((256, 256)),
-    #         transforms.RandomCrop((224, 224)),
-    #         transforms.Normalize(
-    #             mean=[0.485, 0.456, 0.406],
-    #             std=[0.229, 0.224, 0.225]
-    #         ),
-    #     ])
-    # )
-    params = your_algorithm()
-    if params is None:
-        # Default parameters
-        dataloader = DataLoader(
-            dataset=dataset,
-            batch_size=batch_size,
-            num_workers=int( os.cpu_count() / 2 ),
-            prefetch_factor=2,
-            pin_memory=False,
-            persistent_workers=False,
-        )
-    else:
-        dataloader = DataLoader(dataset=dataset, **params)
 
-    dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    # 
+    a_start_time = time.time()
+    default_config = your_algorithm(dataset,batch_size) # 알고리즘 탐색 시간
+    a_end_time = time.time()
 
-    runtime_list = []
-    stime = time.perf_counter_ns() # ns
-    for i, t in dataloader:
-        i, t = i.to(dev), t.to(dev)
-        torch.cuda.synchronize()
-        etime = time.perf_counter_ns()
-        runtime_list.append((etime - stime) * 1e-6) # ms
-    avg_runtime = np.mean(runtime_list)
-    std_runtime = np.std(runtime_list)
+    # DataLoader 생성
+    dataloader = DataLoader(dataset, batch_size=32, **default_config)
 
+    # 데이터 로딩 시간 측정
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    avg_runtime, std_runtime = measure_time(dataloader, device)
+
+    # 결과 출력
+    print("Default Configuration:", default_config)
     print(f"Average Runtime: {avg_runtime:.4f} ms")
-    print(f"Standard Deviation: {std_runtime:.4f}")
+    print(f"Standard Deviation: {std_runtime:.4f} ms")
+    print(f"Parameter Search Time: {a_end_time - a_start_time:.4f} seconds")
+
 
