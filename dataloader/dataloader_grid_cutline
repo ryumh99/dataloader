@@ -1,24 +1,19 @@
-import time
-import numpy as np
 import os
+import time
 import warnings
+import numpy as np
 from PIL import Image
+
 import torch
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms, datasets
-import time
+from torchvision import transforms
 
 warnings.filterwarnings("ignore")
 
 
+### Dataset ###
 class MiniImageNetDataset(Dataset):
     def __init__(self, root_dir, split='train', transform=None):
-        """
-        Args:
-            root_dir (string): Root directory of the dataset.
-            split (string): 'train', 'val', or 'test' split.
-            transform (callable, optional): Optional transform to be applied on a sample.
-        """
         self.root_dir = root_dir
         self.split = split
         self.transform = transform
@@ -33,6 +28,7 @@ class MiniImageNetDataset(Dataset):
                 img_name, label = line.strip().split(',')
                 self.image_paths.append(os.path.join(root_dir, 'images', img_name))
                 self.labels.append(label)
+
         self.label2idx = {label: idx for idx, label in enumerate(sorted(set(self.labels)))}
 
     def __len__(self):
@@ -40,168 +36,117 @@ class MiniImageNetDataset(Dataset):
 
     def __getitem__(self, idx):
         image = Image.open(self.image_paths[idx]).convert('RGB')
-        label = self.labels[idx]
-        label = self.label2idx[label]
-
+        label = self.label2idx[self.labels[idx]]
         if self.transform:
             image = self.transform(image)
-
         return image, label
 
 
-def your_algorithm(dataset, batch_size, iteration =10): # 횟수 지정
-    # setting hyperparameters 
-    num_workers_list = [0, 2, 4, 8, 16, 32, 64, 128]
-    prefetch_factor_list = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
-    persistent_workers_list = [0, 1]
-    pin_memory_list = [0, 1]
-    #initialization
-    best_config = None
-    best_runtime = float('inf') 
+### DataLoader measure time ###
+def measure_time(dataloader, device):
+    """
+    Measure the average runtime and standard deviation for data loading.
 
-    for num_workers in num_workers_list:
-        if num_workers == 0: 
-            prefetch_factor = None
-            persistent_workers = 0
-            for pin_memory in pin_memory_list :
-                _pin_memory = True if pin_memory == 1 else False
-                _persistent_workers = True if persistent_workers == 1 else False
-                # Create the DataLoader with the current configuration
-                dataloader = DataLoader(
-                    dataset=dataset,
-                    batch_size=batch_size,
-                    num_workers=num_workers,
-                    prefetch_factor=prefetch_factor,
-                    persistent_workers=_persistent_workers,
-                    pin_memory=_pin_memory
-                )
+    Args:
+        dataloader (DataLoader): DataLoader to measure.
+        device (torch.device): Device to load data onto.
 
-                # Measure runtime for the current configuration
-                runtime_list = []
-                for _ in range(iteration):
-                    stime = time.perf_counter_ns()  # Start time (in nanoseconds)
-                    for i, t in dataloader:
-                        i, t = i.to('cuda' if torch.cuda.is_available() else 'cpu'), t.to('cuda' if torch.cuda.is_available() else 'cpu')
-                        torch.cuda.synchronize()  # Ensure that CUDA operations are completed before measuring end time
-                        etime = time.perf_counter_ns()  # End time
-                        runtime_list.append((etime - stime) * 1e-6)  # Convert nanoseconds to milliseconds
-                
-                avg_runtime = np.mean(runtime_list)  # Calculate the average runtime
-
-                # update to optimal combination
-                if avg_runtime < best_runtime:
-                    best_runtime = avg_runtime
-                    best_config = {
-                        'num_workers': num_workers,
-                        'prefetch_factor': prefetch_factor,
-                        'persistent_workers': persistent_workers,
-                        'pin_memory': pin_memory
-                    }
-                # cutline
-                if avg_runtime > best_runtime:
-                    print(f"Skipping {num_workers} workers, {prefetch_factor} prefetch_factor, {persistent_workers} persistent_workers, {pin_memory} pin_memory due to slow performance.")
-                    break  # Exit inner loop and move to next combination
-        else:
-            for prefetch_factor in prefetch_factor_list:
-                for pin_memory in pin_memory_list:
-                    for persistent_workers in persistent_workers_list:
-                        _pin_memory = True if pin_memory == 1 else False
-                        _persistent_workers = True if persistent_workers == 1 else False
-                        
-                        if prefetch_factor == 0 or num_workers== 0 and persistent_workers > 0: 
-                            continue
-
-                        # Create the DataLoader with the current configuration
-                        dataloader = DataLoader(
-                            dataset=dataset,
-                            batch_size=batch_size,
-                            num_workers=num_workers,
-                            prefetch_factor=prefetch_factor,
-                            persistent_workers=_persistent_workers,
-                            pin_memory=_pin_memory
-                        )
-
-                        # Measure runtime for the current configuration
-                        runtime_list = []
-                        for _ in range(iteration):
-                            stime = time.perf_counter_ns()  # Start time (in nanoseconds)
-                            for i, t in dataloader:
-                                i, t = i.to('cuda' if torch.cuda.is_available() else 'cpu'), t.to('cuda' if torch.cuda.is_available() else 'cpu')
-                                torch.cuda.synchronize()  # Ensure that CUDA operations are completed before measuring end time
-                                etime = time.perf_counter_ns()  # End time
-                                runtime_list.append((etime - stime) * 1e-6)  # Convert nanoseconds to milliseconds
-                        
-                        avg_runtime = np.mean(runtime_list)  # Calculate the average runtime
-
-                        # update to optimal combination
-                        if avg_runtime < best_runtime:
-                            best_runtime = avg_runtime
-                            best_config = {
-                                'num_workers': num_workers,
-                                'prefetch_factor': prefetch_factor,
-                                'persistent_workers': persistent_workers,
-                                'pin_memory': pin_memory
-                            }
-                        # cutline
-                        if avg_runtime > best_runtime:
-                            print(f"Skipping {num_workers} workers, {prefetch_factor} prefetch_factor, {persistent_workers} persistent_workers, {pin_memory} pin_memory due to slow performance.")
-                            break  # Exit inner loop and move to next combination
-
-    print("Best Configuration:", best_config)
-    print(f"Best Runtime: {best_runtime:.4f} ms")
-
-    return best_config
-
-
-if __name__ == "__main__":
-    batch_size = 32
-    dataset = MiniImageNetDataset(
-        root_dir='/home/myhoon/work/project/dataloader/dataloader',
-        split='train',
-        transform=transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Resize((256, 256)),
-            transforms.RandomCrop((224, 224)),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]
-            ),
-        ])
-    )
-
-    a_start_time = time.time()
-    # Run grid search to find the best configuration
-    params = your_algorithm(dataset, batch_size)
-    a_end_time = time.time()
-    
-    # If no configuration was found (in case of errors), fall back to default parameters
-    if params is None:
-        dataloader = DataLoader(
-            dataset=dataset,
-            batch_size=batch_size,
-            num_workers=int(os.cpu_count() / 2),
-            prefetch_factor=2,
-            pin_memory=False,
-            persistent_workers=False,
-        )
-    else:
-        dataloader = DataLoader(dataset=dataset, **params)
-
-    # Define the device (GPU if available)
-    dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
-    # Measure the runtime for data loading
+    Returns:
+        tuple: (Average runtime in ms, Standard deviation in ms)
+    """
     runtime_list = []
-    stime = time.perf_counter_ns()  # ns
     for i, t in dataloader:
-        i, t = i.to(dev), t.to(dev)
-        torch.cuda.synchronize()  # Ensure the GPU is synchronized
+        stime = time.perf_counter_ns()
+        i, t = i.to(device), t.to(device)
+        torch.cuda.synchronize()  # Wait for all GPU tasks to finish
         etime = time.perf_counter_ns()
-        runtime_list.append((etime - stime) * 1e-6)  # ms
+        runtime_list.append((etime - stime) * 1e-6)  # Convert ns to ms
 
     avg_runtime = np.mean(runtime_list)
     std_runtime = np.std(runtime_list)
+    return avg_runtime, std_runtime
 
+
+### Hyperparameter Optimization Algorithm ###
+def your_algorithm(dataset, batch_size, iterations=1):
+    num_workers_list = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+    prefetch_factor_list = [2, 4, 8, 16,32 ,64]
+    persistent_workers_list = [False, True]
+    pin_memory_list = [False, True]
+
+    best_config = None
+    best_runtime = float('inf')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    for num_workers in num_workers_list:
+        for prefetch_factor in ([None] if num_workers == 0 else prefetch_factor_list):
+            for persistent_workers in ([False] if num_workers == 0 else persistent_workers_list):
+                for pin_memory in pin_memory_list:
+                    # Skip invalid configurations
+                    if num_workers == 0 and persistent_workers:
+                        continue
+
+                    dataloader = DataLoader(
+                        dataset=dataset,
+                        batch_size=batch_size,
+                        num_workers=num_workers,
+                        prefetch_factor=prefetch_factor,
+                        persistent_workers=persistent_workers,
+                        pin_memory=pin_memory,
+                    )
+                    
+                    avg_runtime, _ = measure_time(dataloader, device)
+
+                    # Update the best configuration
+                    if avg_runtime < best_runtime:
+                        best_runtime = avg_runtime
+                        best_config = {
+                            'num_workers': num_workers,
+                            'prefetch_factor': prefetch_factor,
+                            'persistent_workers': persistent_workers,
+                            'pin_memory': pin_memory,
+                        }
+                    # cutline
+                    elif avg_runtime > best_runtime:
+                        print(f"Skipping {num_workers} workers, {prefetch_factor} prefetch_factor, {persistent_workers} persistent_workers, {pin_memory} pin_memory due to slow performance.")
+                        break  # Exit inner loop and move to next combination
+                        
+
+    print("Best Configuration:", best_config)
+    print(f"Best Runtime: {best_runtime:.4f} ms")
+    return best_config
+
+
+### Main Execution ###
+if __name__ == "__main__":
+    batch_size = 2 # 32, ,64 ,128 ,256 
+    dataset = MiniImageNetDataset(
+        root_dir='/home/myhoon/work/dataloader/dataloader', #주소 변경 필수 
+        split='train',
+        transform=transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.RandomCrop((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]),
+        ])
+    )
+
+    # Hyperparameter search
+    a_start_time = time.time()
+    best_config = your_algorithm(dataset, batch_size, iterations=1)
+    a_end_time = time.time()
+
+    # Create DataLoader with the best configuration
+    dataloader = DataLoader(dataset=dataset, batch_size=batch_size, **best_config)
+
+    # Measure final runtime
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    avg_runtime, std_runtime = measure_time(dataloader, device)
+
+    print("\n--- Final Results ---")
+    print(f"Best Configuration: {best_config}")
     print(f"Average Runtime: {avg_runtime:.4f} ms")
-    print(f"Standard Deviation: {std_runtime:.4f}")
-    print(f"Paramter Search Time : {a_end_time - a_start_time :.4f} seconds")
+    print(f"Standard Deviation: {std_runtime:.4f} ms")
+    print(f"Parameter Search Time: {a_end_time - a_start_time:.4f} seconds")
