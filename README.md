@@ -1,3 +1,3 @@
 # dataloader
-모든 파일 하나로 묶을 예정
-binary with cutline 코드 작성 예정
+## conda env create -f environment.yml 로 가상환경 생성 
+## conda activate project 로 가상환경 활성화
