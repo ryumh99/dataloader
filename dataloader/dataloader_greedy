@@ -1,0 +1,146 @@
+import time
+import numpy as np
+import os
+import warnings
+from PIL import Image
+import torch
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
+
+import argparse
+
+warnings.filterwarnings("ignore")
+
+
+class MiniImageNetDataset(Dataset):
+    def __init__(self, root_dir, split='train', transform=None):
+        self.root_dir = root_dir
+        self.split = split
+        self.transform = transform
+
+        self.image_paths = []
+        self.labels = []
+
+        split_path = os.path.join(root_dir, f'{split}.csv')
+        with open(split_path, 'r') as f:
+            next(f)
+            for line in f:
+                img_name, label = line.strip().split(',')
+                self.image_paths.append(os.path.join(root_dir, 'images', img_name))
+                self.labels.append(label)
+        self.label2idx = {label: idx for idx, label in enumerate(sorted(set(self.labels)))}
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        image = Image.open(self.image_paths[idx]).convert('RGB')
+        label = self.labels[idx]
+        label = self.label2idx[label]
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, label
+
+
+def measure_time(dataloader, device):
+    runtime_list = []
+    for i, t in dataloader:
+        stime = time.perf_counter_ns()
+        i, t = i.to(device), t.to(device)
+        if device.type == 'cuda':
+            torch.cuda.synchronize()  # Wait for GPU tasks to finish
+        etime = time.perf_counter_ns()
+        runtime_list.append((etime - stime) * 1e-6)  # Convert ns to ms
+
+    avg_runtime = np.mean(runtime_list)
+    std_runtime = np.std(runtime_list)
+    return avg_runtime, std_runtime
+
+
+def search_func(dataset, batch_size, num_workers_list, prefetch_factor_list,
+                persistent_workers_list, pin_memory_list, device):
+    best_runtime = float('inf')
+    best_config = None
+
+    for num_workers in num_workers_list:
+        for prefetch_factor in ([None] if num_workers == 0 else prefetch_factor_list):
+            for persistent_workers in ([False] if num_workers == 0 else persistent_workers_list):
+                for pin_memory in pin_memory_list:
+                    if num_workers == 0 and persistent_workers:
+                        continue
+
+                    dataloader = DataLoader(
+                        dataset=dataset,
+                        batch_size=batch_size,
+                        num_workers=num_workers,
+                        prefetch_factor=prefetch_factor,
+                        persistent_workers=persistent_workers,
+                        pin_memory=pin_memory,
+                    )
+
+                    avg_runtime, _ = measure_time(dataloader, device)
+                    
+                    # Update the best configuration
+                    if avg_runtime < best_runtime:
+                        best_runtime = avg_runtime
+                        best_config = {
+                            'num_workers': num_workers,
+                            'prefetch_factor': prefetch_factor,
+                            'persistent_workers': persistent_workers,
+                            'pin_memory': pin_memory,
+                        }
+                    
+    return best_runtime, best_config
+
+
+def your_algorithm(dataset, batch_size):
+    num_workers_list = [0, 2, 4, 8, 16, 32, 64]
+    prefetch_factor_list = [2, 4, 8, 16]
+    persistent_workers_list = [False, True]
+    pin_memory_list = [False, True]
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    best_runtime, best_config = search_func(
+        dataset, batch_size, num_workers_list, prefetch_factor_list,
+        persistent_workers_list, pin_memory_list, device
+    )
+
+    return best_config
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--batch_size",type=int, default =2, help = "Batch size for DataLoader") # 32, ,64 ,128 ,256 
+    args = parser.parse_args()
+    batch_size = args.batch_size
+    dataset = MiniImageNetDataset(
+        root_dir='/home/myhoon/work/dataloader/dataloader',
+        split='train',
+        transform=transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.RandomCrop((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            ),
+        ])
+    )
+
+    a_start_time = time.time()
+    best_config = your_algorithm(dataset, batch_size)
+    a_end_time = time.time()
+
+    dataloader = DataLoader(dataset=dataset, batch_size=batch_size, **best_config)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    avg_runtime, std_runtime = measure_time(dataloader, device)
+
+    print("\n--- Final Results ---")
+    print(f"Best Configuration: {best_config}")
+    print(f"Average Runtime: {avg_runtime:.4f} ms")
+    print(f"Standard Deviation: {std_runtime:.4f} ms")
+    print(f"Parameter Search Time: {a_end_time - a_start_time:.4f} seconds")
