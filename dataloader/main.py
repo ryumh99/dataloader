@@ -11,7 +11,7 @@ def extract_values(output):
     avg_runtime_match = re.search(r"Average Runtime:\s*([\d.]+)", output)
     std_runtime_match = re.search(r"Standard Deviation:\s*([\d.]+)",output)
     param_search_time_match = re.search(r"Parameter Search Time:\s*([\d.]+)",output)
-    best_config_match = re.search(r"Best COnfiguration:\s*({.*})",output)
+    best_config_match = re.search(r"Best Configuration:\s*({.*})",output)
     
     avg_runtime = float(avg_runtime_match.group(1)) if avg_runtime_match else None
     std_runtime = float(std_runtime_match.group(1)) if std_runtime_match else None
