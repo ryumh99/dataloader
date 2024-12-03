@@ -8,6 +8,8 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
+import argparse
+
 warnings.filterwarnings("ignore")
 
 
@@ -68,7 +70,7 @@ def measure_time(dataloader, device):
 
 
 ### Hyperparameter Optimization Algorithm ###
-def your_algorithm(dataset, batch_size, iterations=1):
+def your_algorithm(dataset, batch_size):
     num_workers_list = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512]
     prefetch_factor_list = [2, 4, 8, 16,32 ,64]
     persistent_workers_list = [False, True]
@@ -115,9 +117,12 @@ def your_algorithm(dataset, batch_size, iterations=1):
 
 ### Main Execution ###
 if __name__ == "__main__":
-    batch_size = 2 #  32, ,64 ,128 ,256 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--batch_size",type=int, default =2, help = "Batch size for DataLoader") # 32, ,64 ,128 ,256 
+    args = parser.parse_args()
+    batch_size = args.batch_size
     dataset = MiniImageNetDataset(
-        root_dir='/home/myhoon/work/dataloader/dataloader', #주소 변경 필수 
+        root_dir='/home/myhoon/work/dataloader/dataloader',
         split='train',
         transform=transforms.Compose([
             transforms.Resize((256, 256)),
@@ -131,7 +136,7 @@ if __name__ == "__main__":
 
     # Hyperparameter search
     a_start_time = time.time()
-    best_config = your_algorithm(dataset, batch_size, iterations=1)
+    best_config = your_algorithm(dataset, batch_size)
     a_end_time = time.time()
 
     # Create DataLoader with the best configuration
