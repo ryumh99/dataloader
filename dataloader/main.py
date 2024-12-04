@@ -20,7 +20,7 @@ def extract_values(output):
 
     return avg_runtime , std_runtime, param_search_time, best_config
 
-def run_and_average(script_path, runs = 5):
+def run_and_average(script_path,batch_size, runs = 5):
     avg_runtimes = []
     std_runtimes = []
     param_search_times = []
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     dataloader_grid_cutline_avg_runtime, dataloader_grid_cutline_std_runtime, dataloader_grid_cutline_param_search_time, dataloader_grid_cutline_most_common_config = run_and_average('dataloader_grid_cutline', batch_size, runs=5)
 
-    dataloader_greedy_cutline_avg_runtime, dataloader_greedy_cutline_std_runtime, dataloader_greedy_cutline_param_search_time,dataloader_greedy_cutline_most_common_config = run_and_average('dataloader_greedy_cutlne', batch_size, run = 5)
+    dataloader_greedy_cutline_avg_runtime, dataloader_greedy_cutline_std_runtime, dataloader_greedy_cutline_param_search_time,dataloader_greedy_cutline_most_common_config = run_and_average('dataloader_greedy_cutlne', batch_size, runs = 5)
 
 
 
