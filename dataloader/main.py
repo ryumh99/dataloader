@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     dataloader_grid_cutline_avg_runtime, dataloader_grid_cutline_std_runtime, dataloader_grid_cutline_param_search_time, dataloader_grid_cutline_most_common_config = run_and_average('dataloader_grid_cutline', batch_size, runs=5)
 
-    dataloader_greedy_cutline_avg_runtime, dataloader_greedy_cutline_std_runtime, dataloader_greedy_cutline_param_search_time,dataloader_greedy_cutline_most_common_config = run_and_average('dataloader_greedy_cutlne', batch_size, runs = 5)
+    dataloader_greedy_cutline_avg_runtime, dataloader_greedy_cutline_std_runtime, dataloader_greedy_cutline_param_search_time,dataloader_greedy_cutline_most_common_config = run_and_average('dataloader_greedy_cutline', batch_size, runs = 5)
 
 
 
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     print(f"Average Parameter Search Time: {dataloader_grid_cutline_param_search_time:.4f} seconds")
     print(f"Most Common Best Configuration: {dataloader_grid_cutline_most_common_config}")
     # greedy_cutline 결과 출력
-    print("Dataloader Binary with Cutline Script Average Results: ")
+    print("Dataloader Greedy with Cutline Script Average Results: ")
     print(f"Average Runtime : {dataloader_greedy_cutline_avg_runtime:.4f} ms")
     print(f"Average Standard Deviation: {dataloader_greedy_cutline_std_runtime:.4f} ms")
     print(f"Average Parameter Search Time: {dataloader_greedy_cutline_param_search_time:.4f} seconds")
