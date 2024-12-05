@@ -70,7 +70,7 @@ if __name__ == "__main__":
     print(f"Average Runtime: {dataloader_default_avg_runtime:.4f} ms")
     print(f"Average Standard Deviation: {dataloader_default_std_runtime:.4f} ms")
     print(f"Average Parameter Search Time: {dataloader_default_param_search_time:.4f} seconds")
-    print(f"Most Common Best Configuration: {ataloader_default_most_common_config}")
+    print(f"Most Common Best Configuration: {dataloader_default_most_common_config}")
     # grid_cutline 결과 출력
     print("Dataloader Grid with Cutline Script Average Results:")
     print(f"Average Runtime: {dataloader_grid_cutline_avg_runtime:.4f} ms")
