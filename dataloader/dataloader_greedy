@@ -44,6 +44,7 @@ class MiniImageNetDataset(Dataset):
         return image, label
 
 
+### DataLoader measure time ###
 def measure_time(dataloader, device):
     runtime_list = []
     for i, t in dataloader:
@@ -54,6 +55,8 @@ def measure_time(dataloader, device):
         etime = time.perf_counter_ns()
         runtime_list.append((etime - stime) * 1e-6)  # Convert ns to ms
 
+    if len(runtime_list) == 0:
+        return float('inf'), 0  # Default for no data
     avg_runtime = np.mean(runtime_list)
     std_runtime = np.std(runtime_list)
     return avg_runtime, std_runtime
