@@ -57,9 +57,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     batch_size = args.batch_size
 
-    dataloader_default_avg_runtime, dataloader_default_std_runtime, dataloader_default_param_search_time, dataloader_default_most_common_config = run_and_average('dataloader_default', batch_size, runs=5)
+    dataloader_default_avg_runtime, dataloader_default_std_runtime, dataloader_default_param_search_time, dataloader_default_most_common_config = run_and_average('dataloader_default', batch_size, runs = 5)
 
-    dataloader_grid_cutline_avg_runtime, dataloader_grid_cutline_std_runtime, dataloader_grid_cutline_param_search_time, dataloader_grid_cutline_most_common_config = run_and_average('dataloader_grid_cutline', batch_size, runs=5)
+    dataloader_grid_cutline_avg_runtime, dataloader_grid_cutline_std_runtime, dataloader_grid_cutline_param_search_time, dataloader_grid_cutline_most_common_config = run_and_average('dataloader_grid_cutline', batch_size, runs = 5)
 
     dataloader_greedy_cutline_avg_runtime, dataloader_greedy_cutline_std_runtime, dataloader_greedy_cutline_param_search_time,dataloader_greedy_cutline_most_common_config = run_and_average('dataloader_greedy_cutline', batch_size, runs = 5)
 
