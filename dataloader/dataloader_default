@@ -55,24 +55,17 @@ class MiniImageNetDataset(Dataset):
 
 ### DataLoader measure time ###
 def measure_time(dataloader, device):
-    """
-    Measure the average runtime and standard deviation for data loading.
-
-    Args:
-        dataloader (DataLoader): DataLoader to measure.
-        device (torch.device): Device to load data onto.
-
-    Returns:
-        tuple: (Average runtime in ms, Standard deviation in ms)
-    """
     runtime_list = []
     for i, t in dataloader:
         stime = time.perf_counter_ns()
         i, t = i.to(device), t.to(device)
-        torch.cuda.synchronize()  # Wait for all GPU tasks to finish
+        if device.type == 'cuda':
+            torch.cuda.synchronize()  # Wait for GPU tasks to finish
         etime = time.perf_counter_ns()
         runtime_list.append((etime - stime) * 1e-6)  # Convert ns to ms
 
+    if len(runtime_list) == 0:
+        return float('inf'), 0  # Default for no data
     avg_runtime = np.mean(runtime_list)
     std_runtime = np.std(runtime_list)
     return avg_runtime, std_runtime
