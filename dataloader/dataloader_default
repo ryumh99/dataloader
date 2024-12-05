@@ -119,7 +119,7 @@ if __name__ == "__main__":
     a_end_time = time.time()
 
     # DataLoader 생성
-    dataloader = DataLoader(dataset, batch_size=32, **default_config)
+    dataloader = DataLoader(dataset, batch_size, **default_config)
 
     # 데이터 로딩 시간 측정
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
