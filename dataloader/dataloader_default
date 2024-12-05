@@ -100,7 +100,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     batch_size = args.batch_size
     dataset = MiniImageNetDataset(
-        root_dir='/home/myhoon/work/dataloader/dataloader',
+        root_dir='/home/myhoon/work/project/dataloader/dataloader',
         split='train',
         transform=transforms.Compose([
             transforms.ToTensor(),
