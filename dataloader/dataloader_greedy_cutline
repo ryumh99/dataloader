@@ -172,7 +172,7 @@ def grid_search(dataset, batch_size, num_workers, device):
                 # cutline
                 elif avg_runtime > best_runtime:
                     print(f"Skipping {num_workers} workers, {prefetch_factor} prefetch_factor, {persistent_workers} persistent_workers, {pin_memory} pin_memory due to slow performance.")
-                    break  # Exit inner loop and move to next combination
+                    continue # Exit inner loop and move to next combination
 
                     
     return best_runtime, best_config
