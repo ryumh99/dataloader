@@ -11,7 +11,7 @@ import argparse
 
 warnings.filterwarnings("ignore")
 
-
+### Dataset ###
 class MiniImageNetDataset(Dataset):
     def __init__(self, root_dir, split='train', transform=None):
         self.root_dir = root_dir
@@ -83,19 +83,19 @@ def binary_search_with_base(dataset, batch_size, base_runtime, num_workers_list,
         mid = (left + right) // 2
         num_workers = num_workers_list[mid] # Setting the num_workers to middle value 
 
-        # grid_search 호출 (num_workers는 고정된 값)
+        # Grid_search  ( fixed num_workers )
         runtime, config = grid_search(dataset, batch_size, num_workers, device)
 
         if runtime < best_runtime:
             best_runtime = runtime
             best_config = config
-            # 탐색 범위 좁히기
+             # Narrow to the range
             if direction == "lower":
                 right = mid - 1  # "lower"  Narrow to the left based on the middle value in the range
             else:
                 left = mid + 1  # "upper" Narrow to the right based on the middle value in the range
         else:
-            # 성능이 나쁘면 방향에 맞게 범위 좁히기
+            # Narrow to direction if performance is bad
             if direction == "lower":
                 left = mid + 1
             else:
