@@ -104,7 +104,7 @@ def your_algorithm(dataset, batch_size):
                     # cutline
                     elif avg_runtime > best_runtime:
                         print(f"Skipping {num_workers} workers, {prefetch_factor} prefetch_factor, {persistent_workers} persistent_workers, {pin_memory} pin_memory due to slow performance.")
-                        continue  # Exit inner loop and move to next combination
+                        continue  
                         
 
     print("Best Configuration:", best_config)
