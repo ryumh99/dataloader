@@ -61,41 +61,41 @@ def measure_time(dataloader, device):
     std_runtime = np.std(runtime_list)
     return avg_runtime, std_runtime
 
-
+### My algorithm ###
 def binary_search_with_base(dataset, batch_size, base_runtime, num_workers_list, device, direction, default_num_workers):
     runtime = base_runtime
     best_runtime = float('inf')
     best_config = None
     
-    # default_num_workers의 인덱스를 찾기
+    # Find the index of default_num_workers
     if default_num_workers not in num_workers_list:
         raise ValueError(f"default_num_workers {default_num_workers} not in num_workers_list.")
     
-    # default_num_workers의 위치
+    # Position of default_num_workers
     default_index = num_workers_list.index(default_num_workers)
 
     if direction == "lower":
-        left, right = 0, default_index  # default_num_workers 기준으로 왼쪽 범위 설정
+        left, right = 0, default_index  # Left range based on default_num_workers
     else:
-        left, right = default_index, len(num_workers_list) - 1  # default_num_workers 기준으로 오른쪽 범위 설정
+        left, right = default_index, len(num_workers_list) - 1  # Right range based on default_num_workers
 
     while left <= right:
         mid = (left + right) // 2
-        num_workers = num_workers_list[mid]  # 현재 중간값으로 num_workers 설정
+        num_workers = num_workers_list[mid]  # Setting the num_workers to middle value 
 
-        # grid_search 호출 (num_workers는 고정된 값)
+        # Grid_search  ( fixed num_workers )
         runtime, config = grid_search(dataset, batch_size, num_workers, device)
 
         if runtime < best_runtime:
             best_runtime = runtime
             best_config = config
-            # 탐색 범위 좁히기
+            # Narrow to the range
             if direction == "lower":
-                right = mid - 1  # "lower" 범위에서 중간값을 기준으로 왼쪽으로 좁히기
+                right = mid - 1  # "lower"  Narrow to the left based on the middle value in the range
             else:
-                left = mid + 1  # "upper" 범위에서 중간값을 기준으로 오른쪽으로 좁히기
+                left = mid + 1  # "upper" Narrow to the right based on the middle value in the range
         else:
-            # 성능이 나쁘면 방향에 맞게 범위 좁히기
+            # Narrow to direction if performance is bad
             if direction == "lower":
                 left = mid + 1
             else:
@@ -106,26 +106,26 @@ def binary_search_with_base(dataset, batch_size, base_runtime, num_workers_list,
 
 def your_algorithm(dataset, batch_size):
 
-    num_workers_list = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512]  # 설정한 num_workers_list
+    num_workers_list = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512]  # set up the num_workers_list
     
     default_num_workers = int(os.cpu_count()/2) 
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # base_runtime 찾기: 기본 num_workers로 grid_search 실행
+    # base_runtime searching : grid_search run with default num_workers
     base_runtime, _ = grid_search(dataset, batch_size, num_workers=default_num_workers, device=device)
 
-    # Lower 범위 탐색 (num_workers_list 내에서)
+    # Lower range search (in the num_workers_list)
     lower_runtime, lower_config = binary_search_with_base(
         dataset, batch_size, base_runtime, num_workers_list, device, "lower", default_num_workers
     )
 
-    # Upper 범위 탐색 (num_workers_list 내에서)
+    # Upper range search (in the num_workers_list)
     upper_runtime, upper_config = binary_search_with_base(
         dataset, batch_size, base_runtime, num_workers_list, device, "upper", default_num_workers
     )
 
-    # 최적의 결과 반환
+    # Return to the optimal value
     if lower_runtime < upper_runtime:
         return lower_config
     else:
