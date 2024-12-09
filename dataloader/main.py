@@ -65,19 +65,19 @@ if __name__ == "__main__":
 
 
 
-   # default 결과 출력
+    # Print result of default
     print("Dataloader Default Script Average Results:")
     print(f"Average Runtime: {dataloader_default_avg_runtime:.4f} ms")
     print(f"Average Standard Deviation: {dataloader_default_std_runtime:.4f} ms")
     print(f"Average Parameter Search Time: {dataloader_default_param_search_time:.4f} seconds")
     print(f"Most Common Best Configuration: {dataloader_default_most_common_config}")
-    # grid_cutline 결과 출력
+    # Print result of grid_cutline 
     print("Dataloader Grid with Cutline Script Average Results:")
     print(f"Average Runtime: {dataloader_grid_cutline_avg_runtime:.4f} ms")
     print(f"Average Standard Deviation: {dataloader_grid_cutline_std_runtime:.4f} ms")
     print(f"Average Parameter Search Time: {dataloader_grid_cutline_param_search_time:.4f} seconds")
     print(f"Most Common Best Configuration: {dataloader_grid_cutline_most_common_config}")
-    # greedy_cutline 결과 출력
+    # Print result of greedy_cutline
     print("Dataloader Greedy with Cutline Script Average Results: ")
     print(f"Average Runtime : {dataloader_greedy_cutline_avg_runtime:.4f} ms")
     print(f"Average Standard Deviation: {dataloader_greedy_cutline_std_runtime:.4f} ms")
