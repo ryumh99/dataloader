@@ -115,17 +115,17 @@ if __name__ == "__main__":
 
     # 
     a_start_time = time.time()
-    default_config = your_algorithm(dataset,batch_size) # 알고리즘 탐색 시간
+    default_config = your_algorithm(dataset,batch_size) # Measure the time of parameter searching
     a_end_time = time.time()
 
-    # DataLoader 생성
+    # DataLoader creation
     dataloader = DataLoader(dataset, batch_size, **default_config)
 
-    # 데이터 로딩 시간 측정
+    # Measure the time of dataloading 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     avg_runtime, std_runtime = measure_time(dataloader, device)
 
-    # 결과 출력
+    # Result
     print("Default Configuration:", default_config)
     print(f"Average Runtime: {avg_runtime:.4f} ms")
     print(f"Standard Deviation: {std_runtime:.4f} ms")
