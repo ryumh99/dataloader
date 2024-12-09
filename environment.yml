@@ -1,9 +1,15 @@
 name: project  # 가상환경 이름
 channels:
+  - pytorch
+  - nvidia
   - defaults
 dependencies:
   - python=3.8
   - numpy
   - pytorch
   - torchvision
+  - torchaudio
+  - pytorch-cuda=11.8
   - pip
+  - pip:
+      - torchvision==0.18.1
