@@ -10,7 +10,7 @@ from torchvision import transforms
 import argparse
 
 warnings.filterwarnings("ignore")
-
+cpu_core = int(os.cpu_count()//2)
 ### Dataset ###
 class MiniImageNetDataset(Dataset):
     def __init__(self, root_dir, split='train', transform=None):
@@ -106,7 +106,8 @@ def binary_search_with_base(dataset, batch_size, base_runtime, num_workers_list,
 
 def your_algorithm(dataset, batch_size):
 
-    num_workers_list = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512]  # set up the num_workers_list
+    num_workers_list = [0, int(cpu_core*(1/16)), int(cpu_core*(1/8)), int(cpu_core*(1/4)), int(cpu_core*(1/2)), cpu_core,
+                            int(cpu_core*(2)),int(cpu_core*(4)),int(cpu_core*(8)),int(cpu_core*(16))]  # set up the num_workers_list
     
     default_num_workers = int(os.cpu_count()/2) 
 
@@ -135,7 +136,7 @@ def your_algorithm(dataset, batch_size):
 
 def grid_search(dataset, batch_size, num_workers, device):
     
-    prefetch_factor_list = [2, 4, 8, 16 ,32 ,64]
+    prefetch_factor_list = [int(cpu_core*(1/16)), int(cpu_core*(1/8)), int(cpu_core*(1/4)), int(cpu_core*(1/2)) ,cpu_core ,int(cpu_core*2)]
     persistent_workers_list = [False, True]
     pin_memory_list = [False, True]
 
