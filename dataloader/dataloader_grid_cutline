@@ -64,8 +64,16 @@ def measure_time(dataloader, device):
 
 ### Hyperparameter Optimization Algorithm ###
 def your_algorithm(dataset, batch_size):
-    num_workers_list = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-    prefetch_factor_list = [2, 4, 8, 16,32 ,64]
+    num_workers_list = [0, int(cpu_core*(1/16)), int(cpu_core*(1/8)), int(cpu_core*(1/4)), int(cpu_core*(1/2)), cpu_core,
+                            int(cpu_core*(2)),int(cpu_core*(4)),int(cpu_core*(8)),int(cpu_core*(16))]  # set up the num_workers_list
+    prefetch_factor_list = [
+        int(cpu_core * (1/16)),
+        int(cpu_core * (1/8)),
+        int(cpu_core * (1/4)),
+        int(cpu_core * (1/2)),
+        cpu_core,
+        int(cpu_core * 2)
+    ]
     persistent_workers_list = [False, True]
     pin_memory_list = [False, True]
 
@@ -75,9 +83,10 @@ def your_algorithm(dataset, batch_size):
 
     for num_workers in num_workers_list:
         for prefetch_factor in ([None] if num_workers == 0 else prefetch_factor_list):
+            if prefetch_factor is not None and prefetch_factor <= 0:
+                continue  # Skip invalid prefetch_factor values
             for persistent_workers in ([False] if num_workers == 0 else persistent_workers_list):
                 for pin_memory in pin_memory_list:
-                    # Skip invalid configurations
                     if num_workers == 0 and persistent_workers:
                         continue
 
