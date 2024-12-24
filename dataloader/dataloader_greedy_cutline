@@ -136,7 +136,14 @@ def your_algorithm(dataset, batch_size):
 
 def grid_search(dataset, batch_size, num_workers, device):
     
-    prefetch_factor_list = [int(cpu_core*(1/16)), int(cpu_core*(1/8)), int(cpu_core*(1/4)), int(cpu_core*(1/2)) ,cpu_core ,int(cpu_core*2)]
+     prefetch_factor_list = [
+        int(cpu_core * (1/16)),
+        int(cpu_core * (1/8)),
+        int(cpu_core * (1/4)),
+        int(cpu_core * (1/2)),
+        cpu_core,
+        int(cpu_core * 2)
+    ]
     persistent_workers_list = [False, True]
     pin_memory_list = [False, True]
 
@@ -145,6 +152,8 @@ def grid_search(dataset, batch_size, num_workers, device):
     best_config = None
 
     for prefetch_factor in ([None] if num_workers == 0 else prefetch_factor_list):
+        if prefetch_factor is not None and prefetch_factor <= 0:
+            continue  # Skip invalid prefetch_factor values
         for persistent_workers in ([False] if num_workers == 0 else persistent_workers_list):
             for pin_memory in pin_memory_list:
                 if num_workers == 0 and persistent_workers:
